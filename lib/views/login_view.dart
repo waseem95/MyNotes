@@ -1,7 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:training_course/constants/routes.dart';
+import 'package:training_course/services/auth/auth_service.dart';
 import 'package:training_course/utitlities/show_error_dialog.dart';
+
+import '../services/auth/auth_exceptions.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({Key? key}) : super(key: key);
@@ -58,23 +60,28 @@ class _LoginViewState extends State<LoginView> {
               var password = _passwordController.text;
 
               try {
-                await FirebaseAuth.instance.signInWithEmailAndPassword(
-                    email: email, password: password);
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  notesRoute,
-                  (route) => false,
+                await AuthService.firebase().logIn(
+                  email: email,
+                  password: password,
                 );
-              } on FirebaseAuthException catch (e) {
-                if (e.code == 'wrong-password') {
-                  showErrorDialog(context, 'your password is invalid');
-                }
-                if (e.code == 'user-not-fund') {
-                  showErrorDialog(context, 'invalid email');
+                final user = AuthService.firebase().currentUser;
+                if (user?.isEmailVerified ?? false) {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    notesRoute,
+                    (route) => false,
+                  );
                 } else {
-                  showErrorDialog(context, 'Error : ${e.code}');
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    verifyEmailRoute,
+                    (route) => false,
+                  );
                 }
-              } catch (e) {
-                showErrorDialog(context, e.toString());
+              } on UserNotFoundAuthException {
+                showErrorDialog(context, 'invalid email');
+              } on WrongPasswordAuthException {
+                showErrorDialog(context, 'your password is invalid');
+              } on GenericAuthException {
+                showErrorDialog(context, 'Authentication Error');
               }
             },
             child: const Text('Login'),
